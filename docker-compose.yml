@@ -1,0 +1,80 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: activity_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - activity_net
+
+  postgres:
+    image: postgres:13-alpine
+    container_name: activity_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-activity_db}
+      POSTGRES_USER: ${POSTGRES_USER:-activity_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-activity_pass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-activity_user} -d ${POSTGRES_DB:-activity_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - activity_net
+
+  app_service:
+    build: .
+    container_name: activity_app_service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      QUEUE_NAME: user_activity_queue
+      DLX_EXCHANGE: dlx_exchange
+      DLQ_NAME: user_activity_dlq
+      DLQ_ROUTING_KEY: dlq
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-activity_db}
+      POSTGRES_USER: ${POSTGRES_USER:-activity_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-activity_pass}
+      APP_PORT: 8000
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - activity_net
+
+networks:
+  activity_net:
+    driver: bridge
+
+volumes:
+  pgdata:
