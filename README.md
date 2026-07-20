@@ -18,30 +18,30 @@ Docker Compose**.
                          │ basic_publish
                          ▼
               ┌─────────────────────┐
-              │  user_activity_queue │  (durable, dead-letter configured)
-              └─────────┬────────────┘
+              │  user_activity_queue│  (durable, dead-letter configured)
+              └─────────┬───────────┘
                          │ basic_consume (prefetch=1)
                          ▼
         ┌───────────────────────────────────┐
-        │      app_service (consumer)        │
-        │  1. parse JSON                     │
-        │  2. validate schema                │
-        │  3. idempotency check (event_id)   │
-        │  4. upsert user_profiles           │
-        │  5. ack (success) / nack (failure) │
-        └───────┬────────────────────┬───────┘
+        │      app_service (consumer)       │
+        │  1. parse JSON                    │
+        │  2. validate schema               │
+        │  3. idempotency check (event_id)  │
+        │  4. upsert user_profiles          │
+        │  5. ack (success) / nack (failure)│
+        └───────┬────────────────────┬──────┘
                  │ success                │ failure (nack, requeue=False)
                  ▼                         ▼
       ┌────────────────────┐   ┌───────────────────┐
-      │  PostgreSQL         │   │  dlx_exchange      │
-      │  - user_profiles    │   │  (direct)          │
-      │  - processed_events │   └─────────┬──────────┘
+      │  PostgreSQL        │   │  dlx_exchange     │
+      │  - user_profiles   │   │  (direct)         │
+      │  - processed_events│   └─────────┬─────────┘
       └────────────────────┘              │ routing_key='dlq'
                                            ▼
                                 ┌───────────────────────┐
-                                │  user_activity_dlq      │
-                                │ (manual inspection/     │
-                                │  replay)                │
+                                │  user_activity_dlq    │
+                                │ (manual inspection/   │
+                                │  replay)              │
                                 └───────────────────────┘
 
   app_service also exposes:  GET /health  → checks RabbitMQ + PostgreSQL
@@ -89,7 +89,7 @@ satisfying the "expose an HTTP health endpoint" requirement.
 Requires Docker and Docker Compose.
 
 ```bash
-git clone <this-repo-url>
+git clone <https://github.com/JAHNAVISINDHU/event-driven-user-activity-processor>
 cd event-driven-user-activity-processor
 cp .env.example .env        # optional — defaults already work out of the box
 docker compose up --build
